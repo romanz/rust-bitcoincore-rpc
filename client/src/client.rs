@@ -19,11 +19,13 @@ use jsonrpc;
 use serde;
 use serde_json;
 
-use crate::bitcoin::hashes::hex::{FromHex, ToHex};
+use crate::bitcoin::hashes::hex::FromHex;
 use crate::bitcoin::secp256k1::ecdsa::Signature;
 use crate::bitcoin::{
-    Address, Amount, Block, BlockHeader, OutPoint, PrivateKey, PublicKey, Script, Transaction,
+    Address, Amount, Block, OutPoint, PrivateKey, PublicKey, Script, Transaction,
 };
+use bitcoin::blockdata::block::Header as BlockHeader;
+use bitcoin_private::hex::display::DisplayHex;
 use log::Level::{Debug, Trace, Warn};
 
 use crate::error::*;
@@ -158,19 +160,19 @@ pub trait RawTx: Sized + Clone {
 
 impl<'a> RawTx for &'a Transaction {
     fn raw_hex(self) -> String {
-        bitcoin::consensus::encode::serialize(self).to_hex()
+        bitcoin::consensus::encode::serialize(self).to_lower_hex_string()
     }
 }
 
 impl<'a> RawTx for &'a [u8] {
     fn raw_hex(self) -> String {
-        self.to_hex()
+        self.to_lower_hex_string()
     }
 }
 
 impl<'a> RawTx for &'a Vec<u8> {
     fn raw_hex(self) -> String {
-        self.to_hex()
+        self.to_lower_hex_string()
     }
 }
 
@@ -634,7 +636,7 @@ pub trait RpcApi: Sized {
         p2sh: Option<bool>,
     ) -> Result<()> {
         let mut args = [
-            script.to_hex().into(),
+            format!("{:x}", script).into(),
             opt_into_json(label)?,
             opt_into_json(rescan)?,
             opt_into_json(p2sh)?,
@@ -767,6 +769,7 @@ pub trait RpcApi: Sized {
         self.call("fundrawtransaction", handle_defaults(&mut args, &defaults))
     }
 
+    /*
     #[deprecated]
     fn sign_raw_transaction<R: RawTx>(
         &self,
@@ -812,6 +815,7 @@ pub trait RpcApi: Sized {
         let defaults = [empty_arr(), null()];
         self.call("signrawtransactionwithkey", handle_defaults(&mut args, &defaults))
     }
+    */
 
     fn test_mempool_accept<R: RawTx>(
         &self,
@@ -841,7 +845,7 @@ pub trait RpcApi: Sized {
         &self,
         label: Option<&str>,
         address_type: Option<json::AddressType>,
-    ) -> Result<Address> {
+    ) -> Result<Address<bitcoin::address::NetworkUnchecked>> {
         self.call("getnewaddress", &[opt_into_json(label)?, opt_into_json(address_type)?])
     }
 
@@ -1078,6 +1082,7 @@ pub trait RpcApi: Sized {
         )
     }
 
+    /*
     fn wallet_process_psbt(
         &self,
         psbt: &str,
@@ -1098,6 +1103,7 @@ pub trait RpcApi: Sized {
         ];
         self.call("walletprocesspsbt", handle_defaults(&mut args, &defaults))
     }
+    */
 
     fn get_descriptor_info(&self, desc: &str) -> Result<json::GetDescriptorInfoResult> {
         self.call("getdescriptorinfo", &[desc.to_string().into()])
@@ -1116,7 +1122,7 @@ pub trait RpcApi: Sized {
         self.call("finalizepsbt", handle_defaults(&mut args, &[true.into()]))
     }
 
-    fn derive_addresses(&self, descriptor: &str, range: Option<[u32; 2]>) -> Result<Vec<Address>> {
+    fn derive_addresses(&self, descriptor: &str, range: Option<[u32; 2]>) -> Result<Vec<Address<bitcoin::address::NetworkUnchecked>>> {
         let mut args = [into_json(descriptor)?, opt_into_json(range)?];
         self.call("deriveaddresses", handle_defaults(&mut args, &[null()]))
     }
@@ -1176,7 +1182,7 @@ pub trait RpcApi: Sized {
 
     /// Submit a raw block
     fn submit_block_bytes(&self, block_bytes: &[u8]) -> Result<()> {
-        let block_hex: String = block_bytes.to_hex();
+        let block_hex: String = block_bytes.to_lower_hex_string();
         self.submit_block_hex(&block_hex)
     }
 
