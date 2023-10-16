@@ -1,7 +1,7 @@
 
 set -xe
 
-MSRV="1\.41"
+MSRV="1\.48"
 
 # Just echo all the relevant env vars to help debug Travis.
 echo "RUSTFMTCHECK: \"$RUSTFMTCHECK\""
